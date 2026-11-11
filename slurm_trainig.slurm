@@ -14,6 +14,6 @@
 module load mesa
 module load cuda
 module load conda
-conda activate faramarz-env
+conda activate perm-pred-env
 
 python -u "train.py"
