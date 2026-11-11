@@ -49,7 +49,12 @@ def train_model(config: dict[str, Any]) -> None:
     random.seed(config["seed"])
     np.random.seed(config["seed"])
     torch.manual_seed(config["seed"])
-    if torch.cuda.is_available():
+    cuda_available = torch.cuda.is_available()
+    gpu_count = torch.cuda.device_count() if cuda_available else 0
+    print(f"Available CUDA GPUs: {gpu_count}")
+    for gpu_index in range(gpu_count):
+        print(f"  GPU {gpu_index}: {torch.cuda.get_device_name(gpu_index)}")
+    if cuda_available:
         torch.cuda.manual_seed_all(config["seed"])
 
     dataset = PermeabilityDataset(
@@ -90,11 +95,11 @@ def train_model(config: dict[str, Any]) -> None:
 
     target_mean = dataset.targets[training_indices].mean(dim=0)
     target_std = dataset.targets[training_indices].std(dim=0, unbiased=False).clamp_min(1e-12)
-    if config["device"] == "cuda" and not torch.cuda.is_available():
+    if config["device"] == "cuda" and not cuda_available:
         raise RuntimeError("The config requests CUDA, but CUDA is not available.")
     device_name = config["device"]
     if device_name == "auto":
-        device_name = "cuda" if torch.cuda.is_available() else "cpu"
+        device_name = "cuda" if cuda_available else "cpu"
     device = torch.device(device_name)
     print(f"Training device: {device}")
 
@@ -108,14 +113,30 @@ def train_model(config: dict[str, Any]) -> None:
     validation_loader = DataLoader(validation_data, shuffle=False, **loader_options)
     test_loader = DataLoader(test_data, shuffle=False, **loader_options)
 
-    model = create_model(config["model"]).to(device)
+    base_model = create_model(config["model"]).to(device)
+    model: nn.Module = base_model
+    if device.type == "cuda" and gpu_count > 1:
+        model = nn.DataParallel(base_model, device_ids=list(range(gpu_count)))
+        print(f"Using DataParallel across {gpu_count} GPUs.")
+        if config["batch_size"] < gpu_count:
+            print(
+                f"Warning: batch_size={config['batch_size']} is smaller than the "
+                f"{gpu_count} visible GPUs; some GPUs may be idle."
+            )
+    elif device.type == "cuda":
+        print("Using a single CUDA GPU.")
+    else:
+        print("CUDA GPUs are available but will not be used with the selected device.")
+
     trainable_parameters = sum(
-        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+        parameter.numel()
+        for parameter in base_model.parameters()
+        if parameter.requires_grad
     )
-    print(f"Loaded model: {config['model']} ({model.__class__.__name__})")
+    print(f"Loaded model: {config['model']} ({base_model.__class__.__name__})")
     print(f"Trainable parameters: {trainable_parameters:,}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.AdamW(base_model.parameters(), lr=config["learning_rate"])
     loss_function = nn.MSELoss()
     target_mean_device = target_mean.to(device)
     target_std_device = target_std.to(device)
@@ -192,12 +213,12 @@ def train_model(config: dict[str, Any]) -> None:
             best_validation_loss = validation_loss
             best_model_state = {
                 name: value.detach().cpu().clone()
-                for name, value in model.state_dict().items()
+                for name, value in base_model.state_dict().items()
             }
             torch.save(
                 {
                     "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
+                    "model_state_dict": base_model.state_dict(),
                     "target_mean": target_mean,
                     "target_std": target_std,
                     "target_columns": dataset.target_columns,
@@ -220,7 +241,7 @@ def train_model(config: dict[str, Any]) -> None:
 
     if best_model_state is None:
         raise RuntimeError("Training finished without producing a best-model checkpoint.")
-    model.load_state_dict(best_model_state)
+    base_model.load_state_dict(best_model_state)
     if device.type == "cuda":
         torch.cuda.synchronize(device)
     test_started = perf_counter()
