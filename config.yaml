@@ -1,4 +1,5 @@
 data_dir: /albedo/scratch/user/fabagh001/chfem_results
+#data: data
 labels_file: ground_truth.xlsx
 image_column: Image filename
 porosity_column: porosity

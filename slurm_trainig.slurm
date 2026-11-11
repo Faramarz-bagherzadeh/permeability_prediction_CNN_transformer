@@ -13,5 +13,7 @@
 
 module load mesa
 module load cuda
+module load conda
+conda activate faramarz-env
 
-python -u train.py 
+python -u "train.py"
