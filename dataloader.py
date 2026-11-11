@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Sequence
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -30,13 +31,14 @@ class PermeabilityDataset(Dataset):
 
     def __init__(
         self,
-        data_dir: str | Path = "data",
-        labels_file: str | Path = "lbm_data.xlsx",
-        target_shape: tuple[int, int, int] = (64, 64, 64),
-        image_column: str = "file",
-        target_columns: Sequence[str] | None = None,
-        target_transform: str = "log10",
-        target_floor: float = 1e-12,
+        data_dir,
+        labels_file,
+        target_shape,
+        image_column,
+        porosity_column,
+        target_columns,
+        target_transform,
+        target_floor,
     ) -> None:
         self.data_dir = Path(data_dir)
         labels_path = Path(labels_file)
@@ -62,6 +64,11 @@ class PermeabilityDataset(Dataset):
                 f"Image column {image_column!r} was not found in {labels_path}. "
                 f"Available columns: {list(table.columns)}"
             )
+        if porosity_column not in table.columns:
+            raise ValueError(
+                f"Porosity column {porosity_column!r} was not found in {labels_path}. "
+                f"Available columns: {list(table.columns)}"
+            )
         self.target_columns = list(target_columns or _permeability_columns(table.columns))
         if len(self.target_columns) != 3 or any(
             column not in table.columns for column in self.target_columns
@@ -71,7 +78,7 @@ class PermeabilityDataset(Dataset):
         self.target_transform = target_transform
         self.target_floor = float(target_floor)
 
-        labels_by_stem: dict[str, np.ndarray] = {}
+        labels_by_stem: dict[str, tuple[np.ndarray, object]] = {}
         for _, row in table.iterrows():
             name = row[image_column]
             if pd.isna(name):
@@ -83,24 +90,45 @@ class PermeabilityDataset(Dataset):
                 values = row[self.target_columns].to_numpy(dtype=np.float32)
             except (TypeError, ValueError) as error:
                 raise ValueError(f"Invalid permeability values for image {name!r}.") from error
-            if not np.isfinite(values).all():
-                raise ValueError(f"Non-finite permeability value for image {name!r}.")
-            labels_by_stem[stem] = values
+            labels_by_stem[stem] = values, row[porosity_column]
 
-        image_paths = sorted(
+        all_image_paths = sorted(
             path for path in self.data_dir.iterdir()
             if path.is_file() and path.suffix.casefold() == ".vti"
         )
-        if not image_paths:
+        if not all_image_paths:
             raise FileNotFoundError(f"No .vti image files found in {self.data_dir}.")
 
-        missing_labels = [path.name for path in image_paths if path.stem.casefold() not in labels_by_stem]
+        missing_labels = [
+            path.name for path in all_image_paths if path.stem.casefold() not in labels_by_stem
+        ]
         if missing_labels:
             preview = ", ".join(missing_labels[:5])
-            raise ValueError(f"No spreadsheet labels found for {len(missing_labels)} VTI file(s): {preview}")
+            warnings.warn(
+                f"Ignoring {len(missing_labels)} VTI file(s) without ground-truth rows: {preview}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        image_paths = [
+            path for path in all_image_paths if path.stem.casefold() in labels_by_stem
+        ]
+        if not image_paths:
+            raise ValueError("No VTI images have matching ground-truth rows.")
 
         self.image_paths = image_paths
-        targets = np.stack([labels_by_stem[path.stem.casefold()] for path in image_paths])
+        matched_rows = [labels_by_stem[path.stem.casefold()] for path in image_paths]
+        targets = np.stack([row[0] for row in matched_rows])
+        self.nan_target_count = int(np.count_nonzero(np.isnan(targets)))
+        targets = np.where(np.isnan(targets), self.target_floor, targets)
+        if np.isinf(targets).any():
+            raise ValueError("Infinite permeability values are not supported for matched images.")
+        try:
+            porosities = np.asarray([float(row[1]) for row in matched_rows], dtype=np.float64)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Porosity values must be numeric for every matched image.") from error
+        if not np.isfinite(porosities).all():
+            raise ValueError("Porosity values must be finite for every matched image.")
+        self.porosities = porosities
         self.negative_target_count = int(np.count_nonzero(targets < 0))
         targets = np.maximum(targets, 0)
         if self.target_transform == "log10":

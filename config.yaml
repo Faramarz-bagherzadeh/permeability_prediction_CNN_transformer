@@ -1,18 +1,28 @@
 data_dir: data
-labels_file: lbm_data.xlsx
+labels_file: ground_truth.xlsx
+image_column: Image filename
+porosity_column: porosity
+target_columns:
+  - "lbm_kx (m²)"
+  - "lbm_ky (m²)"
+  - "lbm_kz (m²)"
 target_transform: log10
 # Negative targets are clamped to zero; log10 uses this positive floor for zero.
-target_floor: 1.0e-12
+target_floor: 1.0e-14
 
 # Images are resized to image_size x image_size x image_size before training.
 image_size: 256
 epochs: 30
-batch_size: 1
+batch_size: 2
 learning_rate: 0.001
-validation_fraction: 0.2
+train_fraction: 0.7
+validation_fraction: 0.15
+test_fraction: 0.15
+porosity_bins: 10
 seed: 42
 
-# Available model: vanilla_cnn3d
-model: vanilla_cnn3d
+# Available models: vanilla_cnn3d, resnet18_3d, densenet3d
+# Set to -1 to train all available models.
+model: densenet3d
 device: auto
 checkpoint: checkpoints/best_model.pt
