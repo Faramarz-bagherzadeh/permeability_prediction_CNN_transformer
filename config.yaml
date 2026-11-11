@@ -1,0 +1,18 @@
+data_dir: data
+labels_file: lbm_data.xlsx
+target_transform: log10
+# Negative targets are clamped to zero; log10 uses this positive floor for zero.
+target_floor: 1.0e-12
+
+# Images are resized to image_size x image_size x image_size before training.
+image_size: 256
+epochs: 30
+batch_size: 1
+learning_rate: 0.001
+validation_fraction: 0.2
+seed: 42
+
+# Available model: vanilla_cnn3d
+model: vanilla_cnn3d
+device: auto
+checkpoint: checkpoints/best_model.pt
