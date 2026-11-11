@@ -93,7 +93,7 @@ class PermeabilityDataset(Dataset):
             labels_by_stem[stem] = values, row[porosity_column]
 
         all_image_paths = sorted(
-            path for path in self.data_dir.iterdir()
+            path for path in self.data_dir.rglob("*")
             if path.is_file() and path.suffix.casefold() == ".vti"
         )
         if not all_image_paths:

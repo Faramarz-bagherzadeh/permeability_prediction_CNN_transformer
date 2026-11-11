@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, Subset
 
 from data_split import porosity_stratified_split
 from dataloader import PermeabilityDataset
+from early_stopping import EarlyStopping
 from metrics import regression_metrics
 from model_factory import ALL_MODELS, MODEL_REGISTRY, create_model
 
@@ -123,6 +124,10 @@ def train_model(config: dict[str, Any]) -> None:
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     best_validation_loss = float("inf")
     best_model_state = None
+    early_stopping = EarlyStopping(
+        patience=config["early_stopping_patience"],
+        min_delta=config["early_stopping_min_delta"],
+    )
 
     for epoch in range(1, config["epochs"] + 1):
         model.train()
@@ -204,6 +209,14 @@ def train_model(config: dict[str, Any]) -> None:
                 },
                 checkpoint_path,
             )
+
+        if early_stopping.step(validation_loss):
+            print(
+                f"Early stopping at epoch {epoch}: validation loss did not improve "
+                f"by at least {early_stopping.min_delta:g} for "
+                f"{early_stopping.patience} consecutive epochs."
+            )
+            break
 
     if best_model_state is None:
         raise RuntimeError("Training finished without producing a best-model checkpoint.")

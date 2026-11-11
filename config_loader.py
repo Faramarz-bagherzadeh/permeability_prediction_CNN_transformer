@@ -18,6 +18,8 @@ REQUIRED_CONFIG_KEYS = {
     "target_floor",
     "image_size",
     "epochs",
+    "early_stopping_patience",
+    "early_stopping_min_delta",
     "batch_size",
     "learning_rate",
     "train_fraction",
@@ -92,6 +94,19 @@ def load_config(config_path: Path) -> dict[str, Any]:
         raise ValueError("image_size must be at least 8 for three pooling layers.")
     if config["epochs"] < 1 or config["batch_size"] < 1:
         raise ValueError("epochs and batch_size must be positive.")
+    if (
+        isinstance(config["early_stopping_patience"], bool)
+        or not isinstance(config["early_stopping_patience"], int)
+        or config["early_stopping_patience"] < 1
+    ):
+        raise ValueError("early_stopping_patience must be a positive integer.")
+    if (
+        isinstance(config["early_stopping_min_delta"], bool)
+        or not isinstance(config["early_stopping_min_delta"], (int, float))
+        or not np.isfinite(config["early_stopping_min_delta"])
+        or config["early_stopping_min_delta"] < 0
+    ):
+        raise ValueError("early_stopping_min_delta must be a finite non-negative number.")
     if config["learning_rate"] <= 0:
         raise ValueError("learning_rate must be positive.")
 
