@@ -84,9 +84,14 @@ def train_model(config: dict[str, Any]) -> None:
     validation_loader = DataLoader(validation_data, shuffle=False, **loader_options)
     test_loader = DataLoader(test_data, shuffle=False, **loader_options)
 
+    model_image_size = config["image_size"]
+    if model_image_size == -1 and config["model"] in ("monai_vit3d", "monai_swin3d"):
+        _, depth, height, width = dataset[0][0].shape
+        model_image_size = (int(depth), int(height), int(width))
+        print(f"Using original VTI dimensions: {model_image_size}")
     base_model = create_model(
         config["model"],
-        image_size=config["image_size"],
+        image_size=model_image_size,
     ).to(device)
     model: nn.Module = base_model
     if device.type == "cuda" and gpu_count > 1:

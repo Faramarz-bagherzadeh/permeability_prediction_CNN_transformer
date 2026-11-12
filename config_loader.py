@@ -90,8 +90,13 @@ def load_config(config_path: Path) -> dict[str, Any]:
         or config["target_floor"] <= 0
     ):
         raise ValueError("target_floor must be a finite positive number.")
-    if config["image_size"] < 8:
-        raise ValueError("image_size must be at least 8 for three pooling layers.")
+    image_size = config["image_size"]
+    if (
+        isinstance(image_size, bool)
+        or not isinstance(image_size, int)
+        or (image_size != -1 and image_size < 8)
+    ):
+        raise ValueError("image_size must be -1 or an integer of at least 8.")
     if config["epochs"] < 1 or config["batch_size"] < 1:
         raise ValueError("epochs and batch_size must be positive.")
     if (

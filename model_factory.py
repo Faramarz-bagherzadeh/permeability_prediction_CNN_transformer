@@ -22,7 +22,11 @@ MODEL_REGISTRY: dict[str, type[nn.Module]] = {
 }
 
 
-def create_model(name: str, *, image_size: int | None = None) -> nn.Module:
+def create_model(
+    name: str,
+    *,
+    image_size: int | tuple[int, int, int] | None = None,
+) -> nn.Module:
     try:
         model_class = MODEL_REGISTRY[name]
     except KeyError as error:

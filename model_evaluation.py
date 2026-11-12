@@ -20,15 +20,16 @@ def resize_batch(
     device: torch.device,
     image_size: int,
 ) -> torch.Tensor:
-    target_shape = (image_size, image_size, image_size)
     images = images.to(device, non_blocking=True)
-    if images.shape[2:] != target_shape:
-        images = torch_functional.interpolate(
-            images,
-            size=target_shape,
-            mode="trilinear",
-            align_corners=False,
-        )
+    if image_size != -1:
+        target_shape = (image_size, image_size, image_size)
+        if images.shape[2:] != target_shape:
+            images = torch_functional.interpolate(
+                images,
+                size=target_shape,
+                mode="trilinear",
+                align_corners=False,
+            )
     return (images >= 0.5).to(dtype=images.dtype)
 
 

@@ -12,8 +12,8 @@ class MONAIViT3DTests(unittest.TestCase):
 
         from model_t_MonaiViT import MONAIViT3DRegressor
 
-        model = MONAIViT3DRegressor(image_size=32)
-        predictions = model(torch.randn(2, 1, 32, 32, 32))
+        model = MONAIViT3DRegressor(image_size=(24, 32, 40))
+        predictions = model(torch.randn(2, 1, 24, 32, 40))
         self.assertEqual(tuple(predictions.shape), (2, 3))
 
         predictions.sum().backward()

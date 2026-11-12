@@ -11,8 +11,9 @@ target_transform: log10
 # Negative targets are clamped to zero; log10 uses this positive floor for zero.
 target_floor: 1.0e-14
 
-# Images are resized to image_size x image_size x image_size before training.
-image_size: 64
+# Set image_size to -1 to keep each VTI's original dimensions without resizing.
+# Otherwise, images are resized to image_size x image_size x image_size before training.
+image_size: -1
 epochs: 60
 # Stop after this many epochs without significant validation-loss improvement.
 early_stopping_patience: 3
@@ -26,8 +27,9 @@ test_fraction: 0.15
 porosity_bins: 10
 seed: 42
 
-# Available models: vanilla_cnn3d, resnet18_3d, densenet3d, convit3d, monai_vit3d, monai_swin3d
+# Available models: vanilla_cnn3d, resnet18_3d,
+  # densenet3d, convit3d, monai_vit3d, monai_swin3d
 # Set to -1 to train all available models.
-model: -1
+model: vanilla_cnn3d
 device: auto
 checkpoint: checkpoints/best_model.pt
