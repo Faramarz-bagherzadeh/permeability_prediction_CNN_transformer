@@ -15,7 +15,7 @@ target_floor: 1.0e-14
 image_size: 128
 epochs: 60
 # Stop after this many epochs without significant validation-loss improvement.
-early_stopping_patience: 5
+early_stopping_patience: 3
 # Minimum absolute decrease in validation loss considered an improvement.
 early_stopping_min_delta: 0.0
 batch_size: 16

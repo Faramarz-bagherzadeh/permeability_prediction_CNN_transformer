@@ -5,6 +5,7 @@ from time import perf_counter
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
@@ -12,37 +13,8 @@ from torch.utils.data import DataLoader, Subset
 from data_split import porosity_stratified_split
 from dataloader import PermeabilityDataset
 from early_stopping import EarlyStopping
-from metrics import regression_metrics
 from model_factory import ALL_MODELS, MODEL_REGISTRY, create_model
-
-
-def evaluate(
-    model: nn.Module,
-    loader: DataLoader,
-    device: torch.device,
-    target_mean: torch.Tensor,
-    target_std: torch.Tensor,
-    loss_function: nn.Module,
-) -> tuple[float, dict[str, float]]:
-    model.eval()
-    total_loss = 0.0
-    all_predictions = []
-    all_targets = []
-    with torch.no_grad():
-        for images, targets in loader:
-            images = images.to(device, non_blocking=True)
-            targets = targets.to(device, non_blocking=True)
-            predictions = model(images)
-            normalized_targets = (targets - target_mean) / target_std
-            total_loss += loss_function(predictions, normalized_targets).item() * images.shape[0]
-            all_predictions.append(predictions * target_std + target_mean)
-            all_targets.append(targets)
-
-    metrics = regression_metrics(
-        torch.cat(all_predictions, dim=0),
-        torch.cat(all_targets, dim=0),
-    )
-    return total_loss / len(loader.dataset), metrics
+from model_evaluation import evaluate, evaluate_test_set, resize_batch
 
 
 def train_model(config: dict[str, Any]) -> None:
@@ -60,7 +32,6 @@ def train_model(config: dict[str, Any]) -> None:
     dataset = PermeabilityDataset(
         data_dir=config["data_dir"],
         labels_file=config["labels_file"],
-        target_shape=(config["image_size"],) * 3,
         image_column=config["image_column"],
         porosity_column=config["porosity_column"],
         target_columns=config["target_columns"],
@@ -143,12 +114,13 @@ def train_model(config: dict[str, Any]) -> None:
     checkpoint_base = config["checkpoint"]
     checkpoint_path = checkpoint_base.parent / config["model"] / checkpoint_base.name
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    best_validation_loss = float("inf")
+    best_validation_r2 = float("-inf")
     best_model_state = None
     early_stopping = EarlyStopping(
         patience=config["early_stopping_patience"],
         min_delta=config["early_stopping_min_delta"],
     )
+    epoch_metrics_history = []
 
     for epoch in range(1, config["epochs"] + 1):
         model.train()
@@ -157,7 +129,7 @@ def train_model(config: dict[str, Any]) -> None:
             torch.cuda.synchronize(device)
         training_started = perf_counter()
         for images, targets in train_loader:
-            images = images.to(device, non_blocking=True)
+            images = resize_batch(images, device, config["image_size"])
             targets = targets.to(device, non_blocking=True)
             normalized_targets = (targets - target_mean_device) / target_std_device
 
@@ -173,10 +145,11 @@ def train_model(config: dict[str, Any]) -> None:
                 torch.cuda.synchronize(device)
             print(f"First epoch training time: {perf_counter() - training_started:.2f} seconds")
 
-        _, train_metrics = evaluate(
+        _, train_metrics, _ = evaluate(
             model,
             train_eval_loader,
             device,
+            config["image_size"],
             target_mean_device,
             target_std_device,
             loss_function,
@@ -184,10 +157,11 @@ def train_model(config: dict[str, Any]) -> None:
         if epoch == 1 and device.type == "cuda":
             torch.cuda.synchronize(device)
         validation_started = perf_counter()
-        validation_loss, validation_metrics = evaluate(
+        validation_loss, validation_metrics, _ = evaluate(
             model,
             validation_loader,
             device,
+            config["image_size"],
             target_mean_device,
             target_std_device,
             loss_function,
@@ -200,6 +174,18 @@ def train_model(config: dict[str, Any]) -> None:
                 f"{perf_counter() - validation_started:.2f} seconds"
             )
 
+        epoch_metrics = {
+            "epoch": epoch,
+            "train_loss": training_loss,
+            "validation_loss": validation_loss,
+            **{f"train_{name}": value for name, value in train_metrics.items()},
+            **{
+                f"validation_{name}": value
+                for name, value in validation_metrics.items()
+            },
+        }
+        epoch_metrics_history.append(epoch_metrics)
+
         print(
             f"Epoch {epoch:03d}/{config['epochs']} "
             f"train_loss={training_loss:.6f} val_loss={validation_loss:.6f} "
@@ -209,8 +195,11 @@ def train_model(config: dict[str, Any]) -> None:
             f"val_rmse={validation_metrics['rmse_overall']:.3e}"
         )
 
-        if validation_loss < best_validation_loss:
-            best_validation_loss = validation_loss
+        validation_r2 = validation_metrics["r2_overall"]
+        if not np.isfinite(validation_r2):
+            raise ValueError("Validation overall R² is not finite; cannot select a best checkpoint.")
+        if validation_r2 > best_validation_r2:
+            best_validation_r2 = validation_r2
             best_model_state = {
                 name: value.detach().cpu().clone()
                 for name, value in base_model.state_dict().items()
@@ -227,9 +216,11 @@ def train_model(config: dict[str, Any]) -> None:
                     "image_size": config["image_size"],
                     "model": config["model"],
                     "validation_loss": validation_loss,
+                    "validation_r2": validation_r2,
                 },
                 checkpoint_path,
             )
+            print(f"New best validation R²: {best_validation_r2:.4f}")
 
         if early_stopping.step(validation_loss):
             print(
@@ -239,28 +230,27 @@ def train_model(config: dict[str, Any]) -> None:
             )
             break
 
+    metrics_path = checkpoint_path.parent / f"{config['model']}_epoch_metrics.xlsx"
+    pd.DataFrame(epoch_metrics_history).to_excel(metrics_path, index=False)
+    print(f"Epoch metrics saved to {metrics_path}")
+
     if best_model_state is None:
         raise RuntimeError("Training finished without producing a best-model checkpoint.")
     base_model.load_state_dict(best_model_state)
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-    test_started = perf_counter()
-    test_loss, test_metrics = evaluate(
+    predictions_path = checkpoint_path.parent / f"{config['model']}_test_predictions.xlsx"
+    evaluate_test_set(
         model,
         test_loader,
         device,
+        config["image_size"],
         target_mean_device,
         target_std_device,
         loss_function,
+        config,
+        dataset,
+        test_indices,
+        predictions_path,
     )
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-    print(
-        f"Test loss={test_loss:.6f} test_r2={test_metrics['r2_overall']:.4f} "
-        f"test_mae={test_metrics['mae_overall']:.3e} "
-        f"test_rmse={test_metrics['rmse_overall']:.3e}"
-    )
-    print(f"Test evaluation time: {perf_counter() - test_started:.2f} seconds")
     print(f"Best checkpoint saved to {checkpoint_path}")
 
 

@@ -7,7 +7,6 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as functional
 from torch.utils.data import Dataset
 
 
@@ -33,7 +32,6 @@ class PermeabilityDataset(Dataset):
         self,
         data_dir,
         labels_file,
-        target_shape,
         image_column,
         porosity_column,
         target_columns,
@@ -46,8 +44,6 @@ class PermeabilityDataset(Dataset):
             raise FileNotFoundError(f"Image directory does not exist: {self.data_dir}")
         if not labels_path.is_file():
             raise FileNotFoundError(f"Labels spreadsheet does not exist: {labels_path}")
-        if len(target_shape) != 3 or any(size <= 0 for size in target_shape):
-            raise ValueError("target_shape must contain three positive dimensions.")
         if target_transform not in ("log10", "identity"):
             raise ValueError("target_transform must be either 'log10' or 'identity'.")
         if (
@@ -74,7 +70,6 @@ class PermeabilityDataset(Dataset):
             column not in table.columns for column in self.target_columns
         ):
             raise ValueError("target_columns must name three columns present in the spreadsheet.")
-        self.target_shape = tuple(int(size) for size in target_shape)
         self.target_transform = target_transform
         self.target_floor = float(target_floor)
 
@@ -177,14 +172,7 @@ class PermeabilityDataset(Dataset):
         image = torch.from_numpy(image_array).to(dtype=torch.float32)
         if image.max().item() > 1:
             image = image / 255.0
-        image = image.unsqueeze(0).unsqueeze(0)
-        image = functional.interpolate(
-            image,
-            size=self.target_shape,
-            mode="trilinear",
-            align_corners=False,
-        )
-        return image.squeeze(0)
+        return image.unsqueeze(0)
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         image = self._read_image(self.image_paths[index])
