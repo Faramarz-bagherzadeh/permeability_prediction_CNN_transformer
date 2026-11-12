@@ -26,7 +26,7 @@ test_fraction: 0.15
 porosity_bins: 10
 seed: 42
 
-# Available models: vanilla_cnn3d, resnet18_3d, densenet3d
+# Available models: vanilla_cnn3d, resnet18_3d, densenet3d, convit3d, monai_vit3d, monai_swin3d
 # Set to -1 to train all available models.
 model: -1
 device: auto

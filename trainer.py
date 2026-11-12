@@ -84,7 +84,10 @@ def train_model(config: dict[str, Any]) -> None:
     validation_loader = DataLoader(validation_data, shuffle=False, **loader_options)
     test_loader = DataLoader(test_data, shuffle=False, **loader_options)
 
-    base_model = create_model(config["model"]).to(device)
+    base_model = create_model(
+        config["model"],
+        image_size=config["image_size"],
+    ).to(device)
     model: nn.Module = base_model
     if device.type == "cuda" and gpu_count > 1:
         model = nn.DataParallel(base_model, device_ids=list(range(gpu_count)))
