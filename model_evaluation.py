@@ -22,14 +22,14 @@ def resize_batch(
 ) -> torch.Tensor:
     target_shape = (image_size, image_size, image_size)
     images = images.to(device, non_blocking=True)
-    if images.shape[2:] == target_shape:
-        return images
-    return torch_functional.interpolate(
-        images,
-        size=target_shape,
-        mode="trilinear",
-        align_corners=False,
-    )
+    if images.shape[2:] != target_shape:
+        images = torch_functional.interpolate(
+            images,
+            size=target_shape,
+            mode="trilinear",
+            align_corners=False,
+        )
+    return (images >= 0.5).to(dtype=images.dtype)
 
 
 def evaluate(
