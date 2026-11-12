@@ -12,7 +12,7 @@ target_transform: log10
 target_floor: 1.0e-14
 
 # Images are resized to image_size x image_size x image_size before training.
-image_size: 128
+image_size: 64
 epochs: 60
 # Stop after this many epochs without significant validation-loss improvement.
 early_stopping_patience: 3
