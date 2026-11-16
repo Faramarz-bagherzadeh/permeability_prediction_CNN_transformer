@@ -18,6 +18,7 @@ REQUIRED_CONFIG_KEYS = {
     "target_threshold",
     "target_floor",
     "image_size",
+    "rotation_augmentation",
     "epochs",
     "early_stopping_patience",
     "early_stopping_min_delta",
@@ -105,6 +106,8 @@ def load_config(config_path: Path) -> dict[str, Any]:
         or (image_size != -1 and image_size < 8)
     ):
         raise ValueError("image_size must be -1 or an integer of at least 8.")
+    if not isinstance(config["rotation_augmentation"], bool):
+        raise ValueError("rotation_augmentation must be a boolean.")
     if config["epochs"] < 1 or config["batch_size"] < 1:
         raise ValueError("epochs and batch_size must be positive.")
     if (

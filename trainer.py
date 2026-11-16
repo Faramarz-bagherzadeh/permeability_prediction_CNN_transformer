@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
 
+from augmentation import random_rotate_batch
 from data_split import porosity_stratified_split
 from dataloader import PermeabilityDataset
 from early_stopping import EarlyStopping
@@ -137,6 +138,8 @@ def train_model(config: dict[str, Any]) -> None:
             torch.cuda.synchronize(device)
         training_started = perf_counter()
         for images, targets in train_loader:
+            if config["rotation_augmentation"]:
+                images, targets = random_rotate_batch(images, targets)
             images = resize_batch(images, device, config["image_size"])
             targets = targets.to(device, non_blocking=True)
             normalized_targets = (targets - target_mean_device) / target_std_device
