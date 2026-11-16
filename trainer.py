@@ -36,14 +36,14 @@ def train_model(config: dict[str, Any]) -> None:
         porosity_column=config["porosity_column"],
         target_columns=config["target_columns"],
         target_transform=config["target_transform"],
+        target_threshold=config["target_threshold"],
         target_floor=config["target_floor"],
     )
-    if dataset.negative_target_count:
-        print(f"Clamped {dataset.negative_target_count} negative permeability target(s) to zero.")
-    if dataset.nan_target_count:
+    if dataset.dropped_target_row_count:
         print(
-            f"Replaced {dataset.nan_target_count} NaN permeability target(s) "
-            f"with target_floor={dataset.target_floor:g}."
+            f"Dropped {dataset.dropped_target_row_count} ground-truth row(s) because "
+            f"at least one target was NaN or not greater than "
+            f"target_threshold={dataset.target_threshold:g}."
         )
 
     training_indices, validation_indices, test_indices, used_bins = porosity_stratified_split(
@@ -220,6 +220,7 @@ def train_model(config: dict[str, Any]) -> None:
                     "target_std": target_std,
                     "target_columns": dataset.target_columns,
                     "target_transform": dataset.target_transform,
+                    "target_threshold": dataset.target_threshold,
                     "target_floor": dataset.target_floor,
                     "image_size": config["image_size"],
                     "model": config["model"],

@@ -8,7 +8,9 @@ target_columns:
   - "lbm_ky (m²)"
   - "lbm_kz (m²)"
 target_transform: log10
-# Negative targets are clamped to zero; log10 uses this positive floor for zero.
+# Rows are retained only when every target column is greater than this threshold.
+target_threshold: 2.0e-9
+# log10 uses this positive floor for targets near zero.
 target_floor: 1.0e-14
 
 # Set image_size to -1 to keep each VTI's original dimensions without resizing.

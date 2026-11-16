@@ -15,6 +15,7 @@ REQUIRED_CONFIG_KEYS = {
     "porosity_column",
     "target_columns",
     "target_transform",
+    "target_threshold",
     "target_floor",
     "image_size",
     "epochs",
@@ -83,6 +84,13 @@ def load_config(config_path: Path) -> dict[str, Any]:
         raise ValueError("target_columns must be a list of exactly three non-empty column names.")
     if config["target_transform"] not in ("log10", "identity"):
         raise ValueError("target_transform must be either 'log10' or 'identity'.")
+    if (
+        isinstance(config["target_threshold"], bool)
+        or not isinstance(config["target_threshold"], (int, float))
+        or not np.isfinite(config["target_threshold"])
+        or config["target_threshold"] < 0
+    ):
+        raise ValueError("target_threshold must be a finite non-negative number.")
     if (
         isinstance(config["target_floor"], bool)
         or not isinstance(config["target_floor"], (int, float))
