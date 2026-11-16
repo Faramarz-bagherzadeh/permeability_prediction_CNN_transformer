@@ -34,10 +34,10 @@ class ResidualBlock3D(nn.Module):
         return self.activation(outputs + residual)
 
 
-class ResNet18CNN3D(nn.Module):
-    """Map one-channel 3D images to three directional permeability values."""
-
-    def __init__(self, output_features: int = 3) -> None:
+class _ResNetCNN3D(nn.Module):
+    def __init__(
+        self, output_features: int, stage_blocks: tuple[int, int, int, int]
+    ) -> None:
         super().__init__()
         if output_features != 3:
             raise ValueError("The permeability model must predict exactly three values.")
@@ -49,10 +49,10 @@ class ResNet18CNN3D(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool3d(kernel_size=3, stride=2, padding=1),
         )
-        self.layer1 = self._make_layer(16, blocks=2, stride=1)
-        self.layer2 = self._make_layer(32, blocks=2, stride=2)
-        self.layer3 = self._make_layer(64, blocks=2, stride=2)
-        self.layer4 = self._make_layer(128, blocks=2, stride=2)
+        self.layer1 = self._make_layer(16, blocks=stage_blocks[0], stride=1)
+        self.layer2 = self._make_layer(32, blocks=stage_blocks[1], stride=2)
+        self.layer3 = self._make_layer(64, blocks=stage_blocks[2], stride=2)
+        self.layer4 = self._make_layer(128, blocks=stage_blocks[3], stride=2)
         self.pool = nn.AdaptiveAvgPool3d(1)
         self.regressor = nn.Linear(128, output_features)
 
@@ -71,3 +71,17 @@ class ResNet18CNN3D(nn.Module):
         outputs = self.layer3(outputs)
         outputs = self.layer4(outputs)
         return self.regressor(self.pool(outputs).flatten(1))
+
+
+class ResNet18CNN3D(_ResNetCNN3D):
+    """Map one-channel 3D images to three directional permeability values."""
+
+    def __init__(self, output_features: int = 3) -> None:
+        super().__init__(output_features, (2, 2, 2, 2))
+
+
+class ResNet34CNN3D(_ResNetCNN3D):
+    """A deeper ResNet-34-style regressor for volumetric inputs."""
+
+    def __init__(self, output_features: int = 3) -> None:
+        super().__init__(output_features, (3, 4, 6, 3))

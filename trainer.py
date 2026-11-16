@@ -85,7 +85,7 @@ def train_model(config: dict[str, Any]) -> None:
     test_loader = DataLoader(test_data, shuffle=False, **loader_options)
 
     model_image_size = config["image_size"]
-    if model_image_size == -1 and config["model"] in ("monai_vit3d", "monai_swin3d"):
+    if model_image_size == -1 and config["model"] == "swin3d":
         _, depth, height, width = dataset[0][0].shape
         model_image_size = (int(depth), int(height), int(width))
         print(f"Using original VTI dimensions: {model_image_size}")
