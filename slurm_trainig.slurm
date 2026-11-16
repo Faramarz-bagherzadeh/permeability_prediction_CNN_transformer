@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --time=47:00:00
 #SBATCH --job-name=Train
-#SBATCH --output=logs/train_%A_%a.out
+#SBATCH --output=logs/train_%A_.out
 
 
 module load mesa
