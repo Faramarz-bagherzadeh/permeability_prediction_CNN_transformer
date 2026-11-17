@@ -267,12 +267,12 @@ class Swin3DRegressor(nn.Module):
             raise ValueError("The permeability model must predict exactly three values.")
 
         self.image_size = spatial_size
-        self.patch_embed = nn.Conv3d(1, 24, kernel_size=4, stride=4)
+        self.patch_embed = nn.Conv3d(1, 32, kernel_size=4, stride=4)
         #self.patch_embed = nn.Conv3d(1, 24, kernel_size=2, stride=2) out of memory issue
         self.stages = nn.ModuleList()
         self.patch_merging = nn.ModuleList()
-        stage_channels = (24, 48, 96, 192)
-        stage_heads = (3, 6, 12, 24)
+        stage_channels = (32, 64, 128, 256)
+        stage_heads = (4, 8, 16, 32)
         window_size = (4, 4, 4)
         for stage_index, (channels, heads) in enumerate(
             zip(stage_channels, stage_heads)

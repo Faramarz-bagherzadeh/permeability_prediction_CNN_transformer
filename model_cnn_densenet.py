@@ -51,7 +51,7 @@ class DenseTransition3D(nn.Sequential):
 class DenseNetCNN3D(nn.Module):
     """Map one-channel 3D images to three directional permeability values."""
 
-    def __init__(self, output_features: int = 3, growth_rate: int = 8) -> None:
+    def __init__(self, output_features: int = 3, growth_rate: int = 32) -> None:
         super().__init__()
         if output_features != 3:
             raise ValueError("The permeability model must predict exactly three values.")

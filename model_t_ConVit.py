@@ -131,8 +131,8 @@ class ConViT3D(nn.Module):
     def __init__(
         self,
         output_features: int = 3,
-        embed_dim: int = 96,
-        num_heads: int = 4,
+        embed_dim: int = 224,
+        num_heads: int = 8,
         gpsa_layers: int = 2,
         attention_layers: int = 2,
     ) -> None:
