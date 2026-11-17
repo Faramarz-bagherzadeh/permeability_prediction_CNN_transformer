@@ -9,7 +9,7 @@ target_columns:
   - "lbm_kz (m²)"
 target_transform: log10
 # Rows are retained only when every target column is greater than this threshold.
-target_threshold: 2.0e-9
+target_threshold: 2.0e-11
 # log10 uses this positive floor for targets near zero.
 target_floor: 1.0e-14
 
