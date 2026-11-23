@@ -15,7 +15,7 @@ from data_split import porosity_stratified_split
 from dataloader import PermeabilityDataset
 from early_stopping import EarlyStopping
 from model_factory import ALL_MODELS, MODEL_REGISTRY, create_model
-from model_evaluation import evaluate, evaluate_test_set, resize_batch
+from model_evaluation import evaluate, evaluate_all_split_predictions, resize_batch
 
 
 def train_model(config: dict[str, Any]) -> None:
@@ -249,10 +249,14 @@ def train_model(config: dict[str, Any]) -> None:
     if best_model_state is None:
         raise RuntimeError("Training finished without producing a best-model checkpoint.")
     base_model.load_state_dict(best_model_state)
-    predictions_path = checkpoint_path.parent / f"{config['model']}_test_predictions.xlsx"
-    evaluate_test_set(
+    predictions_path = checkpoint_path.parent / f"{config['model']}_predictions.xlsx"
+    evaluate_all_split_predictions(
         model,
-        test_loader,
+        [
+            ("train", train_eval_loader, training_indices),
+            ("validation", validation_loader, validation_indices),
+            ("test", test_loader, test_indices),
+        ],
         device,
         config["image_size"],
         target_mean_device,
@@ -260,7 +264,6 @@ def train_model(config: dict[str, Any]) -> None:
         loss_function,
         config,
         dataset,
-        test_indices,
         predictions_path,
     )
     print(f"Best checkpoint saved to {checkpoint_path}")

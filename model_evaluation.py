@@ -61,59 +61,87 @@ def evaluate(
     return total_loss / len(loader.dataset), metrics, predictions
 
 
-def _save_test_predictions(
+def _prediction_rows(
     config: dict[str, Any],
     dataset: PermeabilityDataset,
-    test_indices: np.ndarray,
+    indices: np.ndarray,
     predictions: torch.Tensor,
-    test_loss: float,
-    test_metrics: dict[str, float],
-    output_path: Path,
-) -> None:
+    split_name: str,
+) -> pd.DataFrame:
     prediction_values = predictions.numpy().astype(np.float64, copy=False)
     if config["target_transform"] == "log10":
         with np.errstate(over="ignore", invalid="ignore"):
             prediction_values = np.power(10.0, prediction_values)
     if not np.isfinite(prediction_values).all():
-        raise ValueError("Predicted permeability values are non-finite; cannot write test results.")
+        raise ValueError(
+            f"Predicted permeability values for the {split_name} set are non-finite."
+        )
 
     predictions_by_stem = {
         dataset.image_paths[int(index)].stem.casefold(): prediction
-        for index, prediction in zip(test_indices, prediction_values)
+        for index, prediction in zip(indices, prediction_values)
     }
     ground_truth = pd.read_excel(config["labels_file"])
     image_column = config["image_column"]
-    test_rows = ground_truth.loc[
+    split_rows = ground_truth.loc[
         ground_truth[image_column].notna()
         & ground_truth[image_column].map(
             lambda name: Path(str(name)).stem.casefold() in predictions_by_stem
         )
     ].copy()
-    if len(test_rows) != len(test_indices):
+    if len(split_rows) != len(indices):
         raise ValueError(
-            "Could not match every test prediction to exactly one ground-truth row."
+            f"Could not match every {split_name} prediction to exactly one "
+            "ground-truth row."
         )
 
     for column_index, target_column in enumerate(dataset.target_columns):
         predicted_column = f"predicted_{target_column}"
-        test_rows[predicted_column] = test_rows[image_column].map(
+        split_rows[predicted_column] = split_rows[image_column].map(
             lambda name: predictions_by_stem[Path(str(name)).stem.casefold()][column_index]
         )
+    split_rows.insert(0, "dataset_split", split_name)
+    vti_names_by_stem = {
+        dataset.image_paths[int(index)].stem.casefold(): dataset.image_paths[int(index)].name
+        for index in indices
+    }
+    split_rows.insert(
+        1,
+        "vti_file_name",
+        split_rows[image_column].map(
+            lambda name: vti_names_by_stem[Path(str(name)).stem.casefold()]
+        ),
+    )
+    return split_rows
 
-    metrics_table = pd.DataFrame(
-        {
-            "metric": ["test_loss", *test_metrics.keys()],
-            "value": [test_loss, *test_metrics.values()],
-        }
+
+def save_split_predictions(
+    split_rows: list[pd.DataFrame],
+    split_metrics: list[tuple[str, float, dict[str, float]]],
+    output_path: Path,
+) -> None:
+    predictions_table = pd.concat(split_rows, ignore_index=True)
+    metrics_table = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "dataset_split": split_name,
+                    "metric": ["loss", *metrics.keys()],
+                    "value": [loss, *metrics.values()],
+                }
+            )
+            for split_name, loss, metrics in split_metrics
+        ],
+        ignore_index=True,
     )
     with pd.ExcelWriter(output_path) as writer:
-        test_rows.to_excel(writer, sheet_name="Predictions", index=False)
-        metrics_table.to_excel(writer, sheet_name="Test metrics", index=False)
+        predictions_table.to_excel(writer, sheet_name="Predictions", index=False)
+        metrics_table.to_excel(writer, sheet_name="Metrics", index=False)
 
 
-def evaluate_test_set(
+def evaluate_all_split_predictions(
     model: nn.Module,
-    loader: DataLoader,
+    loaders_and_indices: list[tuple[str, DataLoader, np.ndarray]],
     device: torch.device,
     image_size: int,
     target_mean: torch.Tensor,
@@ -121,39 +149,36 @@ def evaluate_test_set(
     loss_function: nn.Module,
     config: dict[str, Any],
     dataset: PermeabilityDataset,
-    test_indices: np.ndarray,
     output_path: Path,
-) -> tuple[float, dict[str, float]]:
+) -> None:
     if device.type == "cuda":
         torch.cuda.synchronize(device)
-    test_started = perf_counter()
-    test_loss, test_metrics, test_predictions = evaluate(
-        model,
-        loader,
-        device,
-        image_size,
-        target_mean,
-        target_std,
-        loss_function,
-    )
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-    test_evaluation_time = perf_counter() - test_started
+    evaluation_started = perf_counter()
+    split_rows = []
+    split_metrics = []
+    for split_name, loader, indices in loaders_and_indices:
+        loss, metrics, predictions = evaluate(
+            model,
+            loader,
+            device,
+            image_size,
+            target_mean,
+            target_std,
+            loss_function,
+        )
+        split_rows.append(
+            _prediction_rows(config, dataset, indices, predictions, split_name)
+        )
+        split_metrics.append((split_name, loss, metrics))
+        print(
+            f"{split_name.capitalize()} loss={loss:.6f} "
+            f"{split_name}_r2={metrics['r2_overall']:.4f} "
+            f"{split_name}_mae={metrics['mae_overall']:.3e} "
+            f"{split_name}_rmse={metrics['rmse_overall']:.3e}"
+        )
 
-    _save_test_predictions(
-        config,
-        dataset,
-        test_indices,
-        test_predictions,
-        test_loss,
-        test_metrics,
-        output_path,
-    )
-    print(
-        f"Test loss={test_loss:.6f} test_r2={test_metrics['r2_overall']:.4f} "
-        f"test_mae={test_metrics['mae_overall']:.3e} "
-        f"test_rmse={test_metrics['rmse_overall']:.3e}"
-    )
-    print(f"Test evaluation time: {test_evaluation_time:.2f} seconds")
-    print(f"Test predictions and metrics saved to {output_path}")
-    return test_loss, test_metrics
+    save_split_predictions(split_rows, split_metrics, output_path)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    print(f"Final prediction evaluation time: {perf_counter() - evaluation_started:.2f} seconds")
+    print(f"Train, validation, and test predictions saved to {output_path}")
