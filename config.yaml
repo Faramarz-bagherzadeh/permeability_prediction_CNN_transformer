@@ -19,13 +19,13 @@ target_floor: 1.0e-14
 image_size: -1
 # Rotate training volumes by random 90-degree steps and permute directional targets.
 rotation_augmentation: true
-epochs: 60
+epochs: 2
 # Stop after this many epochs without significant validation-loss improvement.
 early_stopping_patience: 6
 # Minimum absolute decrease in validation loss considered an improvement.
 early_stopping_min_delta: 0.0
 batch_size: 12
-learning_rate: 0.0002
+learning_rate: 1e-4
 train_fraction: 0.7
 validation_fraction: 0.15
 test_fraction: 0.15
