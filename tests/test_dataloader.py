@@ -15,14 +15,15 @@ class PermeabilityDatasetTests(unittest.TestCase):
 
         target_columns = ["kx", "ky", "kz"]
         rows = [
-            ("valid.vti", 0.1, 2.1e-9, 3e-9, 4e-9),
-            ("at_threshold.vti", 0.2, 2e-9, 3e-9, 4e-9),
-            ("negative.vti", 0.3, 3e-9, -1.0, 4e-9),
-            ("nan.vti", 0.4, 3e-9, 4e-9, np.nan),
+            ("valid.vti", 0.1, 2.1e-9, 3e-9, 4e-9, "Converged"),
+            ("at_threshold.vti", 0.2, 2e-9, 3e-9, 4e-9, "Converged"),
+            ("negative.vti", 0.3, 3e-9, -1.0, 4e-9, "Converged"),
+            ("nan.vti", 0.4, 3e-9, 4e-9, np.nan, "Converged"),
+            ("not_converged.vti", 0.5, 3e-9, 4e-9, 5e-9, "Diverged"),
         ]
         labels = pd.DataFrame(
             rows,
-            columns=["image", "porosity", *target_columns],
+            columns=["image", "porosity", *target_columns, "overall_status"],
         )
 
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -49,6 +50,7 @@ class PermeabilityDatasetTests(unittest.TestCase):
         self.assertEqual(len(dataset), 1)
         self.assertEqual(dataset.image_paths[0].name, "valid.vti")
         self.assertEqual(dataset.dropped_target_row_count, 3)
+        self.assertEqual(dataset.dropped_status_row_count, 1)
         np.testing.assert_allclose(dataset.targets.numpy(), [[2.1e-9, 3e-9, 4e-9]])
 
 

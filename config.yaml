@@ -4,10 +4,11 @@ labels_file: ground_truth.xlsx
 image_column: Image filename
 porosity_column: porosity
 target_columns:
-  - "lbm_kx (m²)"
-  - "lbm_ky (m²)"
-  - "lbm_kz (m²)"
+  - "fem_permeability_x_m2"
+  - "fem_permeability_y_m2"
+  - "fem_permeability_z_m2"
 target_transform: log10
+# Only rows with overall_status exactly equal to "Converged" are used.
 # Rows are retained only when every target column is greater than this threshold.
 target_threshold: 2.0e-11
 # log10 uses this positive floor for targets near zero.

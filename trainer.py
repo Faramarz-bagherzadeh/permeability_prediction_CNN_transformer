@@ -50,6 +50,11 @@ def train_model(config: dict[str, Any]) -> None:
             f"at least one target was NaN or not greater than "
             f"target_threshold={dataset.target_threshold:g}."
         )
+    if dataset.dropped_status_row_count:
+        print(
+            f"Dropped {dataset.dropped_status_row_count} ground-truth row(s) because "
+            "overall_status was not 'Converged'."
+        )
 
     split_fractions = (
         config["train_fraction"],

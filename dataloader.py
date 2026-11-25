@@ -10,6 +10,10 @@ import torch
 from torch.utils.data import Dataset
 
 
+OVERALL_STATUS_COLUMN = "overall_status"
+CONVERGED_STATUS = "Converged"
+
+
 def _permeability_columns(columns: Sequence[object]) -> list[str]:
     normalized = {str(column).casefold().replace(" ", ""): str(column) for column in columns}
     selected = []
@@ -73,6 +77,11 @@ class PermeabilityDataset(Dataset):
                 f"Porosity column {porosity_column!r} was not found in {labels_path}. "
                 f"Available columns: {list(table.columns)}"
             )
+        if OVERALL_STATUS_COLUMN not in table.columns:
+            raise ValueError(
+                f"Convergence status column {OVERALL_STATUS_COLUMN!r} was not found in "
+                f"{labels_path}. Available columns: {list(table.columns)}"
+            )
         self.target_columns = list(target_columns or _permeability_columns(table.columns))
         if len(self.target_columns) != 3 or any(
             column not in table.columns for column in self.target_columns
@@ -82,6 +91,9 @@ class PermeabilityDataset(Dataset):
         self.target_threshold = float(target_threshold)
         self.target_floor = float(target_floor)
 
+        valid_status_rows = table[OVERALL_STATUS_COLUMN].eq(CONVERGED_STATUS).to_numpy()
+        self.dropped_status_row_count = int(np.count_nonzero(~valid_status_rows))
+        table = table.loc[valid_status_rows].copy()
         target_values = table[self.target_columns].apply(
             pd.to_numeric, errors="coerce"
         ).to_numpy(dtype=np.float64)

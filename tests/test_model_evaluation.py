@@ -22,6 +22,7 @@ class PredictionExportTests(unittest.TestCase):
             {
                 "image": ["sample_a.vti", "sample_b.vti"],
                 "porosity": [0.2, 0.3],
+                "overall_status": ["Converged", "Converged"],
                 "sample_id": ["A", "B"],
                 "LBM_Kx": [1e-8, 2e-8],
                 "LBM_Ky": [3e-8, 4e-8],

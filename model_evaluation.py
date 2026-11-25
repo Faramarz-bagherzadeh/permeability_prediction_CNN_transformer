@@ -11,7 +11,7 @@ from torch import nn
 from torch.nn import functional as torch_functional
 from torch.utils.data import DataLoader
 
-from dataloader import PermeabilityDataset
+from dataloader import CONVERGED_STATUS, OVERALL_STATUS_COLUMN, PermeabilityDataset
 from metrics import regression_metrics
 
 
@@ -89,6 +89,9 @@ def _prediction_rows(
             lambda name: Path(str(name)).stem.casefold() in predictions_by_stem
         )
     ].copy()
+    split_rows = split_rows.loc[
+        split_rows[OVERALL_STATUS_COLUMN].eq(CONVERGED_STATUS)
+    ]
     if len(split_rows) != len(indices):
         raise ValueError(
             f"Could not match every {split_name} prediction to exactly one "
