@@ -11,7 +11,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Subset
 
 from augmentation import random_rotate_batch
-from data_split import porosity_stratified_split
+from data_split import porosity_extrapolation_split, porosity_stratified_split
 from dataloader import PermeabilityDataset
 from early_stopping import EarlyStopping
 from model_factory import ALL_MODELS, MODEL_REGISTRY, create_model
@@ -47,21 +47,36 @@ def train_model(config: dict[str, Any]) -> None:
             f"target_threshold={dataset.target_threshold:g}."
         )
 
-    training_indices, validation_indices, test_indices, used_bins = porosity_stratified_split(
-        dataset.porosities,
-        (
-            config["train_fraction"],
-            config["validation_fraction"],
-            config["test_fraction"],
-        ),
-        requested_bins=config["porosity_bins"],
-        seed=config["seed"],
+    split_fractions = (
+        config["train_fraction"],
+        config["validation_fraction"],
+        config["test_fraction"],
     )
+    if config["split_scenario"] == "scenario-I":
+        training_indices, validation_indices, test_indices, used_bins = (
+            porosity_stratified_split(
+                dataset.porosities,
+                split_fractions,
+                requested_bins=config["porosity_bins"],
+                seed=config["seed"],
+            )
+        )
+        split_description = (
+            f"porosity-stratified split using {used_bins}/{config['porosity_bins']} bins"
+        )
+    else:
+        training_indices, validation_indices, test_indices = porosity_extrapolation_split(
+            dataset.porosities,
+            split_fractions,
+            scenario=config["split_scenario"],
+            seed=config["seed"],
+        )
+        split_description = f"porosity extrapolation split ({config['split_scenario']})"
     training_data = Subset(dataset, training_indices)
     validation_data = Subset(dataset, validation_indices)
     test_data = Subset(dataset, test_indices)
     print(
-        f"Porosity-stratified split using {used_bins}/{config['porosity_bins']} bins: "
+        f"{split_description}: "
         f"train={len(training_data)}, validation={len(validation_data)}, test={len(test_data)}"
     )
 
@@ -121,7 +136,12 @@ def train_model(config: dict[str, Any]) -> None:
     target_mean_device = target_mean.to(device)
     target_std_device = target_std.to(device)
     checkpoint_base = config["checkpoint"]
-    checkpoint_path = checkpoint_base.parent / config["model"] / checkpoint_base.name
+    checkpoint_path = (
+        checkpoint_base.parent
+        / config["split_scenario"]
+        / config["model"]
+        / checkpoint_base.name
+    )
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     best_validation_r2 = float("-inf")
     best_model_state = None

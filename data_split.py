@@ -132,3 +132,66 @@ def porosity_stratified_split(
         rng.permutation(np.concatenate(split_indices[2])),
         len(unique_bins),
     )
+
+
+def porosity_extrapolation_split(
+    porosities: np.ndarray,
+    fractions: tuple[float, float, float],
+    scenario: str,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Split by porosity rank, holding out one or both ends of the range."""
+    values = np.asarray(porosities, dtype=np.float64)
+    ratios = np.asarray(fractions, dtype=np.float64)
+    if values.ndim != 1 or not np.isfinite(values).all():
+        raise ValueError("porosities must be a one-dimensional array of finite values.")
+    if values.size < 3:
+        raise ValueError("At least three matched samples are required for train/validation/test.")
+    if (
+        ratios.shape != (3,)
+        or not np.isfinite(ratios).all()
+        or np.any(ratios <= 0)
+        or not np.isclose(ratios.sum(), 1.0)
+    ):
+        raise ValueError("Split fractions must be three positive values summing to 1.")
+    if scenario not in ("scenario-II", "scenario-III"):
+        raise ValueError("scenario must be either 'scenario-II' or 'scenario-III'.")
+
+    rng = np.random.default_rng(seed)
+    sample_count = values.size
+    raw_totals = sample_count * ratios
+    target_totals = np.floor(raw_totals).astype(int)
+    total_remainder = sample_count - int(target_totals.sum())
+    tie_order = rng.permutation(3)
+    total_order = sorted(
+        tie_order,
+        key=lambda index: raw_totals[index] - target_totals[index],
+        reverse=True,
+    )
+    for split_index in total_order[:total_remainder]:
+        target_totals[split_index] += 1
+    for split_index in range(3):
+        if target_totals[split_index] == 0:
+            donor = int(np.argmax(target_totals))
+            target_totals[donor] -= 1
+            target_totals[split_index] += 1
+
+    shuffled_indices = rng.permutation(sample_count)
+    ordered_indices = shuffled_indices[
+        np.argsort(values[shuffled_indices], kind="stable")
+    ]
+    train_count, validation_count, test_count = target_totals
+    if scenario == "scenario-II":
+        training_indices = ordered_indices[:train_count]
+        validation_indices = ordered_indices[train_count : train_count + validation_count]
+        test_indices = ordered_indices[train_count + validation_count :]
+    else:
+        test_indices = ordered_indices[:test_count]
+        validation_indices = ordered_indices[test_count : test_count + validation_count]
+        training_indices = ordered_indices[test_count + validation_count :]
+
+    return (
+        rng.permutation(training_indices),
+        rng.permutation(validation_indices),
+        rng.permutation(test_indices),
+    )

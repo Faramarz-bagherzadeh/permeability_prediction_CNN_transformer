@@ -28,6 +28,7 @@ REQUIRED_CONFIG_KEYS = {
     "validation_fraction",
     "test_fraction",
     "porosity_bins",
+    "split_scenario",
     "seed",
     "checkpoint",
     "device",
@@ -148,6 +149,8 @@ def load_config(config_path: Path) -> dict[str, Any]:
         or config["porosity_bins"] < 1
     ):
         raise ValueError("porosity_bins must be a positive integer.")
+    if config["split_scenario"] not in ("scenario-I", "scenario-II", "scenario-III"):
+        raise ValueError("split_scenario must be one of: scenario-I, scenario-II, scenario-III.")
     if config["device"] not in ("auto", "cpu", "cuda"):
         raise ValueError("device must be one of: auto, cpu, cuda.")
     return config

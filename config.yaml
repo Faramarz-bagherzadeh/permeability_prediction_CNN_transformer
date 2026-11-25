@@ -29,6 +29,11 @@ train_fraction: 0.7
 validation_fraction: 0.15
 test_fraction: 0.15
 porosity_bins: 10
+# Choose the data split:
+# scenario-I keeps porosity-bin proportions similar across train/validation/test.
+# scenario-II trains on lower porosity, validates on higher porosity, and tests on the highest.
+# scenario-III tests on the lowest porosity, validates on lower porosity, and trains on higher.
+split_scenario: scenario-I
 seed: 42
 
 # Available models: vanilla_cnn3d, resnet18_3d, resnet34_3d,
