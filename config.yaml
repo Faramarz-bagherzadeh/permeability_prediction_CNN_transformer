@@ -33,8 +33,9 @@ porosity_bins: 10
 # scenario-I keeps porosity-bin proportions similar across train/validation/test.
 # scenario-II trains on lower porosity, validates on higher porosity, and tests on the highest.
 # scenario-III tests on the lowest porosity, validates on lower porosity, and trains on higher.
+# Set split_scenario to -1 to run all three scenarios for each selected model.
 split_scenario: scenario-I
-seed: 42
+seed: 17
 
 # Available models: vanilla_cnn3d, resnet18_3d, resnet34_3d,
 # densenet3d, convit3d, swin3d

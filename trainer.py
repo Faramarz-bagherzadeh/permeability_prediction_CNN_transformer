@@ -11,7 +11,11 @@ from torch import nn
 from torch.utils.data import DataLoader, Subset
 
 from augmentation import random_rotate_batch
-from data_split import porosity_extrapolation_split, porosity_stratified_split
+from data_split import (
+    porosity_extrapolation_split,
+    porosity_stratified_split,
+    resolve_split_scenarios,
+)
 from dataloader import PermeabilityDataset
 from early_stopping import EarlyStopping
 from model_factory import ALL_MODELS, MODEL_REGISTRY, create_model
@@ -292,6 +296,14 @@ def train_model(config: dict[str, Any]) -> None:
 def train_from_config(config: dict[str, Any]) -> None:
     selected_model = config["model"]
     model_names = tuple(MODEL_REGISTRY) if selected_model == ALL_MODELS else (selected_model,)
+    split_scenarios = resolve_split_scenarios(config["split_scenario"])
     for model_name in model_names:
-        print(f"\nTraining model: {model_name}")
-        train_model({**config, "model": model_name})
+        for scenario in split_scenarios:
+            print(f"\nTraining model: {model_name} ({scenario})")
+            train_model(
+                {
+                    **config,
+                    "model": model_name,
+                    "split_scenario": scenario,
+                }
+            )

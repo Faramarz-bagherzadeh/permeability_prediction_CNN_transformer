@@ -2,7 +2,22 @@ import unittest
 
 import numpy as np
 
-from data_split import porosity_extrapolation_split
+from data_split import porosity_extrapolation_split, resolve_split_scenarios
+
+
+class SplitScenarioSelectionTests(unittest.TestCase):
+    def test_minus_one_selects_every_scenario(self) -> None:
+        self.assertEqual(
+            resolve_split_scenarios(-1),
+            ("scenario-I", "scenario-II", "scenario-III"),
+        )
+
+    def test_named_scenario_selects_only_itself(self) -> None:
+        self.assertEqual(resolve_split_scenarios("scenario-II"), ("scenario-II",))
+
+    def test_rejects_boolean_instead_of_treating_it_as_integer(self) -> None:
+        with self.assertRaises(ValueError):
+            resolve_split_scenarios(True)
 
 
 class PorosityExtrapolationSplitTests(unittest.TestCase):

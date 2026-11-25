@@ -6,6 +6,22 @@ from itertools import combinations
 import numpy as np
 
 
+SPLIT_SCENARIOS = ("scenario-I", "scenario-II", "scenario-III")
+
+
+def resolve_split_scenarios(scenario: str | int) -> tuple[str, ...]:
+    """Return one selected split scenario or every available scenario."""
+    if isinstance(scenario, int) and not isinstance(scenario, bool) and scenario == -1:
+        return SPLIT_SCENARIOS
+    if isinstance(scenario, str) and scenario in SPLIT_SCENARIOS:
+        return (scenario,)
+    raise ValueError(
+        "split_scenario must be -1 (all scenarios) or one of: "
+        + ", ".join(SPLIT_SCENARIOS)
+        + "."
+    )
+
+
 def porosity_stratified_split(
     porosities: np.ndarray,
     fractions: tuple[float, float, float],
