@@ -19,11 +19,16 @@ class ModelCapacityTests(unittest.TestCase):
         self.assertGreaterEqual(vanilla_parameters, 450_000)
         self.assertLessEqual(vanilla_parameters, 550_000)
 
-        models = (
-            DenseNetCNN3D(),
-            ConViT3D(),
-            Swin3DRegressor(image_size=32),
+        densenet_model = DenseNetCNN3D()
+        densenet_parameters = sum(
+            parameter.numel()
+            for parameter in densenet_model.parameters()
+            if parameter.requires_grad
         )
+        self.assertGreaterEqual(densenet_parameters, 450_000)
+        self.assertLessEqual(densenet_parameters, 550_000)
+
+        models = (ConViT3D(), Swin3DRegressor(image_size=32))
         for model in models:
             with self.subTest(model=type(model).__name__):
                 trainable_parameters = sum(
