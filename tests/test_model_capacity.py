@@ -10,8 +10,16 @@ class ModelCapacityTests(unittest.TestCase):
         from model_t_ConVit import ConViT3D
         from model_t_Swin import Swin3DRegressor
 
+        vanilla_model = VanillaCNN3D()
+        vanilla_parameters = sum(
+            parameter.numel()
+            for parameter in vanilla_model.parameters()
+            if parameter.requires_grad
+        )
+        self.assertGreaterEqual(vanilla_parameters, 450_000)
+        self.assertLessEqual(vanilla_parameters, 550_000)
+
         models = (
-            VanillaCNN3D(),
             DenseNetCNN3D(),
             ConViT3D(),
             Swin3DRegressor(image_size=32),

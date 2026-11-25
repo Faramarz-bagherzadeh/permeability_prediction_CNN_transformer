@@ -12,22 +12,22 @@ class VanillaCNN3D(nn.Module):
             raise ValueError("The permeability model must predict exactly three values.")
 
         self.features = nn.Sequential(
-            nn.Conv3d(1, 96, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm3d(96),
+            nn.Conv3d(1, 42, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm3d(42),
             nn.GELU(),
             nn.MaxPool3d(2),
-            nn.Conv3d(96, 192, kernel_size=3, padding=1),
-            nn.BatchNorm3d(192),
+            nn.Conv3d(42, 84, kernel_size=3, padding=1),
+            nn.BatchNorm3d(84),
             nn.GELU(),
             nn.MaxPool3d(2),
-            nn.Conv3d(192, 384, kernel_size=3, padding=1),
-            nn.BatchNorm3d(384),
+            nn.Conv3d(84, 168, kernel_size=3, padding=1),
+            nn.BatchNorm3d(168),
             nn.GELU(),
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
         )
         self.regressor = nn.Sequential(
-            nn.Linear(384, 32),
+            nn.Linear(168, 32),
             nn.GELU(),
             nn.Linear(32, output_features),
         )
