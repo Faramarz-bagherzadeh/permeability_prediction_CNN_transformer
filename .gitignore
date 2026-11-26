@@ -9,6 +9,11 @@ __pycache__/
 *.vtk
 *.vti
 *.pt
+*.png
+*.pdf
+*.jpg
+*.json
+
 
 # C extensions
 *.so

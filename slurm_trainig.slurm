@@ -8,12 +8,19 @@
 #SBATCH --cpus-per-task=120
 #SBATCH --time=47:00:00
 #SBATCH --job-name=Train
-#SBATCH --output=logs/train_%A_.out
+#SBATCH --output=logs/train_%A_%a.out
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 module load mesa
 module load cuda
 module load conda
 conda activate perm-pred-env
 
-python -u "train.py"
+CONFIG_PATH="${1:-$SCRIPT_DIR/config.yaml}"
+if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
+    python -u train.py --config "$CONFIG_PATH" --model-index "$SLURM_ARRAY_TASK_ID"
+else
+    python -u train.py --config "$CONFIG_PATH"
+fi

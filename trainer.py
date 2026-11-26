@@ -298,9 +298,17 @@ def train_model(config: dict[str, Any]) -> None:
     print(f"Best checkpoint saved to {checkpoint_path}")
 
 
-def train_from_config(config: dict[str, Any]) -> None:
+def train_from_config(config: dict[str, Any], model_index: int | None = None) -> None:
     selected_model = config["model"]
     model_names = tuple(MODEL_REGISTRY) if selected_model == ALL_MODELS else (selected_model,)
+    if model_index is not None:
+        if selected_model != ALL_MODELS:
+            raise ValueError("--model-index can only be used when model is set to -1.")
+        if isinstance(model_index, bool) or not 0 <= model_index < len(model_names):
+            raise ValueError(
+                f"model index must be between 0 and {len(model_names) - 1}, got {model_index}."
+            )
+        model_names = (model_names[model_index],)
     split_scenarios = resolve_split_scenarios(config["split_scenario"])
     for model_name in model_names:
         for scenario in split_scenarios:

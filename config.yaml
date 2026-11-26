@@ -19,9 +19,9 @@ target_floor: 1.0e-14
 image_size: -1
 # Rotate training volumes by random 90-degree steps and permute directional targets.
 rotation_augmentation: true
-epochs: 2
+epochs: 60
 # Stop after this many epochs without significant validation-loss improvement.
-early_stopping_patience: 6
+early_stopping_patience: 5
 # Minimum absolute decrease in validation loss considered an improvement.
 early_stopping_min_delta: 0.0
 batch_size: 12
@@ -40,7 +40,7 @@ seed: 17
 
 # Available models: vanilla_cnn3d, resnet18_3d, resnet34_3d,
 # densenet3d, convit3d, swin3d
-# Set to -1 to train all available models.
-model: vanilla_cnn3d
+# Set to -1 to train all models. Use bash submit_slurm.sh to run them as an array.
+model: -1
 device: auto
 checkpoint: checkpoints/best_model.pt
