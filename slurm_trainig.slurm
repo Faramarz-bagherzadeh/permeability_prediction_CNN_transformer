@@ -10,15 +10,19 @@
 #SBATCH --job-name=Train
 #SBATCH --output=logs/train_%A_%a.out
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+PROJECT_DIR="${1:-${SLURM_SUBMIT_DIR:-}}"
+if [[ -z "$PROJECT_DIR" ]]; then
+    echo "Repository directory argument or SLURM_SUBMIT_DIR is required" >&2
+    exit 1
+fi
+CONFIG_PATH="${2:-$PROJECT_DIR/config.yaml}"
+cd "$PROJECT_DIR"
 
 module load mesa
 module load cuda
 module load conda
 conda activate perm-pred-env
 
-CONFIG_PATH="${1:-$SCRIPT_DIR/config.yaml}"
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
     python -u train.py --config "$CONFIG_PATH" --model-index "$SLURM_ARRAY_TASK_ID"
 else

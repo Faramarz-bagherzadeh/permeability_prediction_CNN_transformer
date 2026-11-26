@@ -27,7 +27,8 @@ cd "$SCRIPT_DIR"
 mkdir -p logs
 if [[ "$MODEL" == "-1" ]]; then
     LAST_MODEL_INDEX=$((MODEL_COUNT - 1))
-    sbatch --array="0-$LAST_MODEL_INDEX%4" "$SCRIPT_DIR/slurm_trainig.slurm" "$CONFIG_PATH"
+    sbatch --array="0-$LAST_MODEL_INDEX%4" "$SCRIPT_DIR/slurm_trainig.slurm" \
+        "$SCRIPT_DIR" "$CONFIG_PATH"
 else
-    sbatch "$SCRIPT_DIR/slurm_trainig.slurm" "$CONFIG_PATH"
+    sbatch "$SCRIPT_DIR/slurm_trainig.slurm" "$SCRIPT_DIR" "$CONFIG_PATH"
 fi
